@@ -142,10 +142,10 @@
 
         // Your Firebase config - REPLACE WITH YOUR ACTUAL CONFIG
         const firebaseConfig = {
-          apiKey: "AIzaSyBcYcAlZexm0wWJNvSUIBOsyxRzmDFFzv0",
+          apiKey: process.env.API_KEY,
           projectId: "kincare-official",
-          messagingSenderId: "914350483271",
-          appId: "1:914350483271:android:5c6a4344f9491afcbdce62"
+          messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID
+          appId: process.env.FIREBASE_APP_ID
         };
 
         const app = initializeApp(firebaseConfig);
