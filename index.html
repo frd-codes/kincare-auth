@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KinCare - Email Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 350px;
+            width: 100%;
+        }
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .success {
+            color: #28a745;
+            font-size: 1.2rem;
+            margin: 1rem 0;
+        }
+        .error {
+            color: #dc3545;
+            font-size: 1.2rem;
+            margin: 1rem 0;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px 5px;
+            transition: background 0.3s;
+            font-size: 16px;
+            min-width: 120px;
+        }
+        .btn:hover {
+            background: #5a67d8;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .hidden {
+            display: none;
+        }
+        .app-links {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .app-links p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        @media (max-width: 480px) {
+            .container {
+                padding: 1.5rem;
+                margin: 10px;
+            }
+            .btn {
+                display: block;
+                margin: 10px 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">KinCare</div>
+        
+        <div id="loading">
+            <div class="spinner"></div>
+            <p>Verifying your email...</p>
+        </div>
+        
+        <div id="success" class="hidden">
+            <div class="success">✅ Email verified successfully!</div>
+            <p>Your KinCare account is now active.</p>
+            
+            <div class="app-links">
+                <p>Return to the KinCare app to continue</p>
+                <a href="kincare://verified" class="btn" id="openAppBtn">Open KinCare App</a>
+                <br>
+                <a href="#" class="btn btn-secondary" id="downloadBtn">Download App</a>
+            </div>
+        </div>
+        
+        <div id="error" class="hidden">
+            <div class="error">❌ Verification failed</div>
+            <p id="errorMessage">Invalid or expired verification link.</p>
+            
+            <div class="app-links">
+                <p>Please try again from the KinCare app</p>
+                <a href="kincare://error" class="btn" id="openAppErrorBtn">Open KinCare App</a>
+                <br>
+                <a href="#" class="btn btn-secondary" id="downloadBtn2">Download App</a>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js';
+        import { getAuth, applyActionCode, checkActionCode } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
+
+        // Your Firebase config - REPLACE WITH YOUR ACTUAL CONFIG
+        const firebaseConfig = {
+          apiKey: "AIzaSyBcYcAlZexm0wWJNvSUIBOsyxRzmDFFzv0",
+          projectId: "kincare-official",
+          messagingSenderId: "914350483271",
+          appId: "1:914350483271:android:5c6a4344f9491afcbdce62"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const mode = urlParams.get('mode');
+        const actionCode = urlParams.get('oobCode');
+
+        const loading = document.getElementById('loading');
+        const success = document.getElementById('success');
+        const error = document.getElementById('error');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // Handle different action modes
+        if (mode === 'verifyEmail' && actionCode) {
+            handleEmailVerification(actionCode);
+        } else if (mode === 'resetPassword' && actionCode) {
+            handlePasswordReset(actionCode);
+        } else {
+            showError('Invalid verification link');
+        }
+
+        async function handleEmailVerification(actionCode) {
+            try {
+                await checkActionCode(auth, actionCode);
+                await applyActionCode(auth, actionCode);
+                showSuccess();
+                
+                // Auto-attempt to open app after 2 seconds
+                setTimeout(() => {
+                    attemptToOpenApp('kincare://verified');
+                }, 2000);
+                
+            } catch (err) {
+                console.error('Verification error:', err);
+                let message = 'Verification failed';
+                
+                switch (err.code) {
+                    case 'auth/expired-action-code':
+                        message = 'This verification link has expired. Please request a new one from the app.';
+                        break;
+                    case 'auth/invalid-action-code':
+                        message = 'This verification link is invalid or has already been used.';
+                        break;
+                    case 'auth/user-disabled':
+                        message = 'This account has been disabled.';
+                        break;
+                    default:
+                        message = err.message || 'Something went wrong. Please try again from the app.';
+                }
+                
+                showError(message);
+            }
+        }
+
+        async function handlePasswordReset(actionCode) {
+            // For mobile apps, you might want to handle password reset differently
+            // This could redirect to your app with the reset code
+            attemptToOpenApp(`kincare://reset?code=${actionCode}`);
+        }
+
+        function showSuccess() {
+            loading.classList.add('hidden');
+            success.classList.remove('hidden');
+        }
+
+        function showError(message) {
+            loading.classList.add('hidden');
+            error.classList.remove('hidden');
+            errorMessage.textContent = message;
+        }
+
+        function attemptToOpenApp(deepLink) {
+            // Try to open the app
+            window.location.href = deepLink;
+            
+            // Fallback: if app doesn't open, user can manually click buttons
+        }
+
+        // Set up download links - REPLACE WITH YOUR ACTUAL APP STORE LINKS
+        document.getElementById('downloadBtn').href = 'https://play.google.com/store/apps/details?id=com.yourcompany.kincare';
+        document.getElementById('downloadBtn2').href = 'https://play.google.com/store/apps/details?id=com.yourcompany.kincare';
+        
+        // Handle app opening buttons
+        document.getElementById('openAppBtn').addEventListener('click', () => {
+            attemptToOpenApp('kincare://verified');
+        });
+        
+        document.getElementById('openAppErrorBtn').addEventListener('click', () => {
+            attemptToOpenApp('kincare://error');
+        });
+
+        // Detect if it's mobile and auto-try to open app
+        const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        if (isMobile && window.location.search.includes('redirect=app')) {
+            // Auto-attempt to open app on mobile
+            setTimeout(() => {
+                attemptToOpenApp('kincare://emailverify');
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
